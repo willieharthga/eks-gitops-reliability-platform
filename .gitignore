@@ -1,0 +1,29 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+coverage.xml
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Generated kubeconfig files, local evidence, and credentials never belong in Git.
+.kube/
+.local/
+artifacts/
+*.kubeconfig
+*.key
+*.pem
+
+# Terraform (introduced in a later milestone).
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
