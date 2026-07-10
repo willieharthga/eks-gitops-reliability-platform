@@ -1,0 +1,41 @@
+{
+  "$comment": "Single source of truth for the buildable services. JSON, not YAML, so the credential-free verification path can read it with the standard library only.",
+  "registry": {
+    "local": "localhost:5001",
+    "local_in_cluster": "gitops-registry:5000"
+  },
+  "services": [
+    {
+      "name": "api",
+      "directory": "api",
+      "package": "api_service",
+      "role": "http",
+      "port": 8080,
+      "description": "Accepts synthetic orders and hands work to the worker queue."
+    },
+    {
+      "name": "frontend",
+      "directory": "frontend",
+      "package": "frontend_service",
+      "role": "http",
+      "port": 8080,
+      "description": "Displays the running deployment version and platform health."
+    },
+    {
+      "name": "worker",
+      "directory": "worker",
+      "package": "worker_service",
+      "role": "worker",
+      "port": 8080,
+      "description": "Claims queued tasks and reports their outcome."
+    },
+    {
+      "name": "load-generator",
+      "directory": "load-generator",
+      "package": "loadgen_service",
+      "role": "worker",
+      "port": 8080,
+      "description": "Produces deterministic synthetic traffic and injected client errors."
+    }
+  ]
+}
