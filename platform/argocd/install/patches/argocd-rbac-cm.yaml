@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+data:
+  # Read-only by default. Argo CD's shipped default is role:readonly already,
+  # but stating it here means a future upstream change cannot silently widen
+  # this installation's default.
+  policy.default: role:readonly
+
+  policy.csv: |
+    # An operator may inspect everything and may synchronise development, but
+    # cannot synchronise production from the UI. Production changes go through
+    # a reviewed commit, which is the boundary ADR 0002 draws; a UI sync button
+    # that bypasses review would erase it.
+    p, role:platform-operator, applications, get, */*, allow
+    p, role:platform-operator, applications, sync, workloads/platform-dev, allow
+    p, role:platform-operator, logs, get, */*, allow
+    p, role:platform-operator, projects, get, *, allow
+
+    # Deliberately no 'delete' and no 'override' for any role defined here.
+    g, platform-operators, role:platform-operator
+
+  scopes: "[groups]"

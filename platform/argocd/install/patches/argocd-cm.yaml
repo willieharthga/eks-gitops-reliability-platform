@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+data:
+  # Annotation tracking, not the default label tracking. Labels are truncated
+  # at 63 characters and get copied by controllers onto resources they create,
+  # which produces both false drift and missed drift. Annotations identify the
+  # owning Application exactly, which is what the M3 drift test depends on.
+  application.resourceTrackingMethod: annotation
+
+  # Aggregated ClusterRoles are assembled by the controller from other roles,
+  # so their rules are never desired state.
+  resource.compareoptions: |
+    ignoreAggregatedRoles: true
+
+  resource.exclusions: |
+    - apiGroups:
+        - coordination.k8s.io
+      kinds:
+        - Lease
+      clusters:
+        - '*'
+
+  # No ignoreDifferences rules are configured yet, deliberately. The obvious
+  # candidate is .spec.replicas, but ignoring it now would hide exactly the
+  # drift the M3 acceptance test must detect, and nothing writes replicas
+  # except Git. It is added in M9, together with the HPA that makes it true.

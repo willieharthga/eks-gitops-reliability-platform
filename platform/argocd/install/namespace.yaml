@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/part-of: argocd
+    platform.gitops-reliability.io/owner: eks-gitops-reliability-platform
+    # Argo CD's own components are not restricted-profile compliant out of the
+    # box, so this namespace runs at baseline while workload namespaces run at
+    # restricted. Making that difference explicit is better than silently
+    # loosening the whole cluster.
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

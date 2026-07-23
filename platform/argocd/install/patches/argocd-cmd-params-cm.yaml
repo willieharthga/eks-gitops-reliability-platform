@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd
+data:
+  # Two single-node kind clusters cannot absorb the default parallelism, and a
+  # starved control plane produces reconciliation timings that say more about
+  # the laptop than about GitOps. These values keep the M3 measurements
+  # meaningful; they are not a recommendation for a real installation.
+  controller.status.processors: "4"
+  controller.operation.processors: "2"
+  controller.repo.server.timeout.seconds: "120"
+
+  # Reconcile promptly so that the drift test does not have to wait three
+  # minutes for the default polling interval to come round.
+  timeout.reconciliation: 30s
+
+  # The API server keeps TLS. Nothing here exposes Argo CD outside the cluster;
+  # access is through `kubectl port-forward`, so there is no reason to run the
+  # server insecure for convenience.
+  server.insecure: "false"

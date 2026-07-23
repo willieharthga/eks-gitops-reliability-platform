@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Argo CD is installed declaratively from a pinned upstream release. The
+# version is part of the reviewed change, so an upgrade is a commit rather than
+# whatever "stable" happened to mean on the day someone ran the bootstrap.
+
+namespace: argocd
+
+resources:
+  - namespace.yaml
+  - github.com/argoproj/argo-cd/manifests/cluster-install?ref=v3.5.2
+
+patches:
+  - path: patches/argocd-cm.yaml
+  - path: patches/argocd-rbac-cm.yaml
+  - path: patches/argocd-cmd-params-cm.yaml
+
+labels:
+  - includeSelectors: false
+    pairs:
+      platform.gitops-reliability.io/owner: eks-gitops-reliability-platform
