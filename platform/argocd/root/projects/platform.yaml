@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+  labels:
+    platform.gitops-reliability.io/owner: eks-gitops-reliability-platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: >-
+    Platform add-ons and the Argo CD configuration that manages them. This
+    project may create cluster-scoped resources, so membership in it is the
+    privileged path and is kept deliberately small.
+
+  sourceRepos:
+    - REPLACE_ME_REPO_URL
+
+  destinations:
+    - name: in-cluster
+      namespace: argocd
+    - name: in-cluster
+      namespace: platform-system
+    - name: gitops-prod
+      namespace: platform-system
+
+  # Platform add-ons legitimately install CRDs and cluster roles.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  # Even privileged projects must not be able to remove the guardrails that
+  # constrain everything else.
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: ResourceQuota
+    - group: ""
+      kind: LimitRange
+
+  # No orphanedResources monitoring here. The argocd namespace holds the whole
+  # Argo CD installation, which is deliberately applied by the bootstrap and
+  # not managed by any Application, so every one of those resources would be
+  # reported as orphaned. A warning that is always firing is not a warning.
+  # The workloads project, whose namespace contains nothing unmanaged, does
+  # monitor for orphans.

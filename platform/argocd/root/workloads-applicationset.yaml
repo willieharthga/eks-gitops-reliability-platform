@@ -1,0 +1,68 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workloads
+  namespace: argocd
+  labels:
+    platform.gitops-reliability.io/owner: eks-gitops-reliability-platform
+spec:
+  goTemplate: true
+  # Fail loudly on a missing template key. The default renders an empty string,
+  # which would silently produce an Application pointing at the wrong path.
+  goTemplateOptions:
+    - missingkey=error
+
+  # Deleting an environment from the list should not silently delete a running
+  # environment. Removal is made explicit rather than implicit.
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+
+  generators:
+    - list:
+        elements:
+          - environment: dev
+            clusterName: in-cluster
+          - environment: production
+            clusterName: gitops-prod
+
+  template:
+    metadata:
+      name: platform-{{.environment}}
+      labels:
+        platform.gitops-reliability.io/environment: "{{.environment}}"
+        platform.gitops-reliability.io/owner: eks-gitops-reliability-platform
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: workloads
+
+      source:
+        repoURL: REPLACE_ME_REPO_URL
+        targetRevision: main
+        path: environments/{{.environment}}
+
+      destination:
+        name: "{{.clusterName}}"
+        namespace: platform
+
+      syncPolicy:
+        # Both environments reconcile automatically. The approval boundary for
+        # production is the reviewed pull request that changes
+        # environments/production, not a human pressing Sync afterwards: a UI
+        # button that can deploy unreviewed state is not an approval gate.
+        # See ADR 0002.
+        automated:
+          selfHeal: true
+          prune: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=false
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+
+      revisionHistoryLimit: 10

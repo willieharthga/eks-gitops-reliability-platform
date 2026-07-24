@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Everything Argo CD manages about itself, reconciled by the root Application.
+#
+# Note what is absent: the Argo CD installation in ../install is applied once by
+# the bootstrap and is not managed from here. Letting Argo CD reconcile its own
+# controller means a bad upgrade can remove the controller that would have
+# rolled the upgrade back. Installation stays an explicit operator action.
+
+namespace: argocd
+
+resources:
+  - projects/platform.yaml
+  - projects/workloads.yaml
+  - root-application.yaml
+  - workloads-applicationset.yaml

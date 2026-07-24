@@ -1,0 +1,71 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: workloads
+  namespace: argocd
+  labels:
+    platform.gitops-reliability.io/owner: eks-gitops-reliability-platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: >-
+    Application workloads. Constrained to the platform namespace on each
+    environment cluster and to the handful of resource kinds an application
+    legitimately owns.
+
+  sourceRepos:
+    - REPLACE_ME_REPO_URL
+
+  destinations:
+    - name: in-cluster
+      namespace: platform
+    - name: gitops-prod
+      namespace: platform
+
+  # The application owns exactly one cluster-scoped resource: its namespace.
+  # Anything else it might want, such as a ClusterRole or a CRD, is a platform
+  # concern and must be reviewed as one.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: apps
+      kind: Deployment
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: argoproj.io
+      kind: Rollout
+    - group: argoproj.io
+      kind: AnalysisTemplate
+
+  # Secrets are absent on purpose. A workload that needs one gets it through
+  # the External Secrets pattern in M8; committing Secret manifests, even
+  # empty ones, normalises the habit this repository forbids.
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: Secret
+
+  # A workload must not be able to widen its own permissions.
+  roles: []
+
+  orphanedResources:
+    warn: true
+    ignore:
+      # Created by the Rollouts controller, not declared in Git.
+      - group: argoproj.io
+        kind: AnalysisRun
+      - group: argoproj.io
+        kind: Experiment
+      - group: apps
+        kind: ReplicaSet

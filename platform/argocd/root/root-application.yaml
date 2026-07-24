@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  labels:
+    platform.gitops-reliability.io/owner: eks-gitops-reliability-platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+
+  source:
+    repoURL: REPLACE_ME_REPO_URL
+    targetRevision: main
+    path: platform/argocd/root
+
+  destination:
+    name: in-cluster
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      # selfHeal is what makes an unauthorised kubectl change revert instead of
+      # merely showing as OutOfSync. It is the mechanism the M3 acceptance test
+      # exercises.
+      selfHeal: true
+      # prune removes resources deleted from Git. Enabled here because this
+      # Application's contents are projects and generators whose removal must
+      # take effect; the workload Applications configure prune separately.
+      prune: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+
+  # This Application's own path includes this file, so Argo CD manages the
+  # root itself. Bootstrap applies it once; afterwards Git is the only way to
+  # change it, including changing it back if someone edits it by hand.
+  revisionHistoryLimit: 10
