@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argo-rollouts
+  labels:
+    app.kubernetes.io/name: argo-rollouts
+    platform.gitops-reliability.io/owner: eks-gitops-reliability-platform
