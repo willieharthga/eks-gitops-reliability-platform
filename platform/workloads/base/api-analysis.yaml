@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: api-canary-sli
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/component: analysis
+    app.kubernetes.io/part-of: eks-gitops-reliability-platform
+spec:
+  # Web JSON against the API process, not Prometheus. M6 will add a collector
+  # and can swap this provider; the SLI names stay the same so the canary
+  # contract does not silently change meaning.
+  metrics:
+    - name: error-ratio
+      interval: 10s
+      count: 3
+      failureLimit: 1
+      initialDelay: 5s
+      # Zero samples fail closed as error_ratio=1.0 on /api/sli.
+      successCondition: result < 0.1
+      failureCondition: result >= 0.1
+      provider:
+        web:
+          url: http://api.platform.svc:8080/api/sli
+          timeoutSeconds: 5
+          jsonPath: "{$.error_ratio}"
+    - name: p95-latency
+      interval: 10s
+      count: 3
+      failureLimit: 1
+      initialDelay: 5s
+      successCondition: result < 0.5
+      failureCondition: result >= 0.5
+      provider:
+        web:
+          url: http://api.platform.svc:8080/api/sli
+          timeoutSeconds: 5
+          jsonPath: "{$.p95_seconds}"

@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The base is intentionally not deployable on its own: PLATFORM_ENVIRONMENT is
+# "unset" and the image tag is a bootstrap placeholder. An environment overlay
+# must supply both. A base that happens to work unmodified invites someone to
+# apply it directly and bypass the environment boundary.
+
+namespace: platform
+
+resources:
+  - namespace.yaml
+  - api.yaml
+  - api-analysis.yaml
+  - frontend.yaml
+  - worker.yaml
+  - load-generator.yaml
+
+configurations:
+  - kustomizeconfig.yaml
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: eks-gitops-reliability-platform
+      app.kubernetes.io/managed-by: argocd
+      platform.gitops-reliability.io/owner: eks-gitops-reliability-platform

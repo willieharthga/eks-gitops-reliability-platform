@@ -1,0 +1,161 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: eks-gitops-reliability-platform
+# The services make no Kubernetes API calls, so the token is not mounted.
+# A mounted token is a credential an attacker can use after an RCE.
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: eks-gitops-reliability-platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: api
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: eks-gitops-reliability-platform
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  # Canary weights below 100% always run analysis first. Full traffic is the
+  # implicit last step after the last analysis succeeds. A failed analysis
+  # aborts, so a bad canary never becomes the Service.
+  strategy:
+    canary:
+      maxSurge: 1
+      maxUnavailable: 0
+      stableMetadata:
+        labels:
+          role: stable
+      canaryMetadata:
+        labels:
+          role: canary
+      steps:
+        - setWeight: 20
+        - analysis:
+            templates:
+              - templateName: api-canary-sli
+        - setWeight: 50
+        - analysis:
+            templates:
+              - templateName: api-canary-sli
+        - setWeight: 80
+        - analysis:
+            templates:
+              - templateName: api-canary-sli
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: eks-gitops-reliability-platform
+        role: stable
+    spec:
+      serviceAccountName: api
+      automountServiceAccountToken: false
+      # Longer than the container's own drain, so the process finishes serving
+      # in-flight requests instead of being killed halfway through the drain.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: gitops-registry:5000/api:0.0.0-bootstrap
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            # Supplied by each environment overlay. The generated name carries
+            # a content hash, so changing a setting rolls the pods out instead
+            # of leaving them running with stale configuration.
+            - configMapRef:
+                name: platform-environment
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_ROLE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['role']
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              # No CPU limit: throttling a latency-sensitive service to enforce
+              # a ceiling it rarely reaches degrades p99 for no benefit. Memory
+              # is limited because exceeding it is a leak, not a burst.
+              memory: 128Mi
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # The root filesystem is read-only; anything needing scratch space gets
+        # an explicit emptyDir so the requirement is visible.
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

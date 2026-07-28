@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform
+  labels:
+    app.kubernetes.io/part-of: eks-gitops-reliability-platform
+    platform.gitops-reliability.io/owner: eks-gitops-reliability-platform
+    # Consumed by the restricted Pod Security admission profile. Declaring it
+    # here means a workload that violates the baseline is rejected by the API
+    # server at admission, before Kyverno is introduced in M8.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

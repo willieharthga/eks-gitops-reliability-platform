@@ -1,0 +1,15 @@
+# Teach Kustomize that a Rollout is a workload controller.
+#
+# Without this, `images:` and `replicas:` in the environment overlays only
+# rewrite Deployments, and the API pin would stay on the bootstrap tag after
+# a promotion.
+
+images:
+  - kind: Rollout
+    group: argoproj.io
+    path: spec/template/spec/containers/image
+
+replicas:
+  - kind: Rollout
+    group: argoproj.io
+    path: spec/replicas
