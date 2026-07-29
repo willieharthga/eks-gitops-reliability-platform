@@ -1,0 +1,62 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Production environment, reconciled by Argo CD into the gitops-prod cluster.
+#
+# "Production" here means the stricter promotion destination in a local
+# demonstration. It carries no real traffic or data, and the repository must
+# never imply that it does.
+
+namespace: platform
+
+resources:
+  - ../../platform/workloads/base
+
+configMapGenerator:
+  - name: platform-environment
+    literals:
+      - PLATFORM_ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - SHUTDOWN_DRAIN_SECONDS=5
+      - LOAD_RPS=5
+      - LOAD_READ_WEIGHT=3
+      - LOAD_WRITE_WEIGHT=1
+      # No synthetic client errors here: the production error-rate SLI must
+      # measure the platform, not the test equipment.
+      - LOAD_INVALID_RATIO=0
+      # Fault injection stays off in production configuration. M5 enables it on
+      # a canary only, through a reviewed change to the rollout definition.
+      - FAULT_ERROR_RATIO=0
+      - FAULT_LATENCY_SECONDS=0
+      - FAULT_LATENCY_RATIO=0
+      # Applied only to pods labelled role=canary. Stable replicas ignore it.
+      - CANARY_FAULT_ERROR_RATIO=0
+
+replicas:
+  - name: api
+    count: 2
+  - name: frontend
+    count: 2
+  - name: worker
+    count: 2
+  - name: load-generator
+    count: 1
+
+# Image pins are written by scripts/promote.py. 0.0.0-bootstrap is a
+# pre-promotion placeholder, not a reviewed release. A promoted release
+# has a digest and no tag. See docs/adr/0003-immutable-artifact-promotion.md.
+images:
+  - name: gitops-registry:5000/api
+    newTag: 0.0.0-bootstrap
+  - name: gitops-registry:5000/frontend
+    newTag: 0.0.0-bootstrap
+  - name: gitops-registry:5000/worker
+    newTag: 0.0.0-bootstrap
+  - name: gitops-registry:5000/load-generator
+    newTag: 0.0.0-bootstrap
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/instance: platform-production
+      platform.gitops-reliability.io/environment: production

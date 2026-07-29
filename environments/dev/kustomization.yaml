@@ -1,0 +1,61 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Development environment, reconciled by Argo CD into the gitops-dev cluster.
+#
+# This file is the entire desired state for the environment. Nothing is applied
+# to the cluster by a pipeline; see ADR 0002.
+
+namespace: platform
+
+resources:
+  - ../../platform/workloads/base
+
+configMapGenerator:
+  - name: platform-environment
+    literals:
+      - PLATFORM_ENVIRONMENT=dev
+      - LOG_LEVEL=DEBUG
+      - SHUTDOWN_DRAIN_SECONDS=2
+      - LOAD_RPS=2
+      - LOAD_READ_WEIGHT=3
+      - LOAD_WRITE_WEIGHT=1
+      # A steady trickle of client errors in development keeps the 4xx panels
+      # and the "client error is not an SLO violation" rule honest.
+      - LOAD_INVALID_RATIO=0.05
+      - FAULT_ERROR_RATIO=0
+      - FAULT_LATENCY_SECONDS=0
+      - FAULT_LATENCY_RATIO=0
+      # Applied only to pods labelled role=canary. Stable replicas ignore it.
+      - CANARY_FAULT_ERROR_RATIO=0
+
+# Single replicas: development proves reconciliation and delivery mechanics,
+# not availability. Claiming otherwise from one kind node would be dishonest.
+replicas:
+  - name: api
+    count: 1
+  - name: frontend
+    count: 1
+  - name: worker
+    count: 1
+  - name: load-generator
+    count: 1
+
+# Image pins are written by scripts/promote.py. 0.0.0-bootstrap is a
+# pre-promotion placeholder, not a reviewed release. A promoted release
+# has a digest and no tag. See docs/adr/0003-immutable-artifact-promotion.md.
+images:
+  - name: gitops-registry:5000/api
+    newTag: 0.0.0-bootstrap
+  - name: gitops-registry:5000/frontend
+    newTag: 0.0.0-bootstrap
+  - name: gitops-registry:5000/worker
+    newTag: 0.0.0-bootstrap
+  - name: gitops-registry:5000/load-generator
+    newTag: 0.0.0-bootstrap
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/instance: platform-dev
+      platform.gitops-reliability.io/environment: dev
