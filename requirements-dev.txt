@@ -1,4 +1,4 @@
-pre-commit==4.6.2
+pre-commit==4.7.0
 # Used only by the manifest contract tests. The services themselves import
 # nothing outside the standard library; see ADR 0004.
 PyYAML==6.0.3
